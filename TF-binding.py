@@ -36,6 +36,9 @@ parser.add_argument('-m', metavar = 'ModelFile',
 parser.add_argument('-o', metavar = 'OutFilePrefix', 
                     help = 'Optional, the prefix that all output files will be based on (do not include file extension)', 
                     dest = 'outprefix')
+parser.add_argument('--direction',
+                    help =  'Optional, specify the direction of the sequences to get scores for; "fwd" for scoring the forward (sense) strand, "rev" for scoring the reverse (anti-sense) strand, and "best" (default) to use the best score from both directions for each position.' ,
+                    choices = ['fwd','rev','best'] )
 args = parser.parse_args()
 genomefile = args.genomefile
 seqfile = args.seqfile
@@ -90,7 +93,8 @@ if runtype == 'SVR':
     badscore = 0
 
 # Defining whether we're scoring the forward sequences ('fwd'), reverse ('rev'), or the best of both sequences ('best')
-seqtype = 'best'
+if args.direction: seqtype = args.direction
+else: seqtype = 'best'
     
 
 '''Defining the Modules ========================================================='''
@@ -396,7 +400,7 @@ def scores_by_SVR(seqdata,modelfile,outfile):
     
     f=open(outfile,'w', 1)
     for n in range(len(chiplists)): #for each 
-        print "testing set", n+1, "of", len(chiplists)
+        #print "testing set", n+1, "of", len(chiplists)
         smallchip = chiplists[n]
     
         ### Making master list of sequences to get scored
@@ -420,7 +424,7 @@ def scores_by_SVR(seqdata,modelfile,outfile):
             if any(coreseq in coreF for coreseq in searchstrings): seqlist.append(kmer) #if the core is a good core, add to the list
             if any(coreseq in coreR for coreseq in searchstrings): seqlist.append(kmerR) #if the core is a good core, add to the list
          
-        print "Getting the SVR scores for", len(seqlist), "small sequences:  set", n+1, "of", len(chiplists)
+        print "  Getting the SVR scores for", len(seqlist), "small sequences:  set", n+1, "of", len(chiplists)
         scores = apply_model_to_seqs(seqlist,modelfile) #columns are Score, Sequence, with header line
         #for line in scores: print "\t".join(map(str,line))
          
@@ -531,7 +535,7 @@ def apply_model_to_seqs(seqlist,model):
     results = [['Score','Sequence']]
     outdata = read_data(outfile)
     for x in range(len(seqlist)):
-        print seqlist[x], outdata[x]
+        #print seqlist[x], outdata[x]
         results.append([float(outdata[x][0]), seqlist[x]])
         #print outdata[x][0], seqs[x], seqs[x][16:20]
     endtime = time.time()
