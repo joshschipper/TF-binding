@@ -39,6 +39,7 @@ parser.add_argument('-o', metavar = 'OutFilePrefix',
 parser.add_argument('--direction',
                     help =  'Optional, specify the direction of the sequences to get scores for; "fwd" for scoring the forward (sense) strand, "rev" for scoring the reverse (anti-sense) strand, and "best" (default) to use the best score from both directions for each position.' ,
                     choices = ['fwd','rev','best'] )
+
 args = parser.parse_args()
 genomefile = args.genomefile
 seqfile = args.seqfile
@@ -77,6 +78,10 @@ if args.negseqfile:
 ''' Parameters =========================================================='''
 
 ### These parameters are querried by the program
+
+### Files with large numbers of sequences need to be broken up into chunks for LIBSVM to run efficently
+chunksize = 1000
+
 if runtype == 'SVR':
     ### Length of the sequences used for building the model: 36 is the default value
     length = 36 
@@ -92,7 +97,7 @@ if runtype == 'SVR':
     ### Sequences that don't match the criteria (SVR) should be assigned a low score 
     badscore = 0
 
-# Defining whether we're scoring the forward sequences ('fwd'), reverse ('rev'), or the best of both sequences ('best')
+### Defining whether we're scoring the forward sequences ('fwd'), reverse ('rev'), or the best of both sequences ('best')
 if args.direction: seqtype = args.direction
 else: seqtype = 'best'
     
@@ -236,16 +241,16 @@ def get_peak_lengths(npfile):
     '''Takes a narrow peaks file, gets the length of each peak, and writes this to a new column, in a new file'''
     peaks = read_data(npfile)
     outdata = []
-    outfile = npfile[:-3]+'_peaklengths.pk'
-    f=open(outfile, 'w')
+    #outfile = os.path.splitext(npfile)[0]+'_peaklengths.pk'
+    #f=open(outfile, 'w')
     for line in peaks:
         seq,beg,end = line[0],int(line[1]),int(line[2])
         total = end - beg
         if total > 1000: total = 1001
         newline = [seq,beg,end,total]
-        print >>f, ("\t".join(map(str,newline)))
+        #print >>f, ("\t".join(map(str,newline)))
         outdata.append(newline)
-    f.close()
+    #f.close()
     return outdata
 
 def normalize_peak_lengths(peak1file,peak2file):
@@ -359,13 +364,13 @@ def binding_prediction_chipall(modelfile,seqfile,genomefile):
         #data = read_data(seqfile)
     
     if seqtype == 'fwd': 
-        datascorefile = outprefix+'_'+os.path.splitext(seqfile)[0]+'_FWD_SVR-scores.txt'
+        datascorefile = outprefix+'_'+os.path.splitext(modelfile)[0]+'_FWD_SVR-scores.txt'
         print >>f_info, "Finding the scores for only sequences in the forward direction"
     elif seqtype == 'rev': 
-        datascorefile = outprefix+'_'+os.path.splitext(seqfile)[0]+'_REV_SVR-scores.txt'
+        datascorefile = outprefix+'_'+os.path.splitext(modelfile)[0]+'_REV_SVR-scores.txt'
         print >>f_info, "Finding the scores for only sequences in the reverse direction"
     elif seqtype == 'best':
-        datascorefile = outprefix+'_'+os.path.splitext(seqfile)[0]+'_SVR-scores.txt'
+        datascorefile = outprefix+'_'+os.path.splitext(modelfile)[0]+'_SVR-scores.txt'
         print >>f_info, "Finding the best score of both the forward and reverse sequences"
     
     print >>f_info, 'Scores are being written to: ', datascorefile
@@ -389,7 +394,6 @@ def scores_by_SVR(seqdata,modelfile,outfile):
     
     ### Breaking the allseqs file into smaller chunks if it's too big (500,000 sequences per chunk)
     print "total number of sequences", len(seqdata)
-    chunksize = 1000
     
     ### Splitting list into smaller lists, and saving as a list of lists
     chiplists = [seqdata[i:i + chunksize] for i in range(0, len(seqdata), chunksize)]
@@ -651,13 +655,13 @@ def binding_prediction_PWM_chipall(pwmfile,seqfile,genomefile):
         #data = read_data(seqfile)
     
     if seqtype == 'fwd': 
-        datascorefile = outprefix+'_'+os.path.splitext(seqfile)[0]+'_FWD_PWM-scores.txt'
+        datascorefile = outprefix+'_'+os.path.splitext(modelfile)[0]+'_FWD_PWM-scores.txt'
         print >>f_info, "Finding the scores for only sequences in the forward direction"
     elif seqtype == 'rev': 
-        datascorefile = outprefix+'_'+os.path.splitext(seqfile)[0]+'_REV_PWM-scores.txt'
+        datascorefile = outprefix+'_'+os.path.splitext(modelfile)[0]+'_REV_PWM-scores.txt'
         print >>f_info, "Finding the scores for only sequences in the reverse direction"
     elif seqtype == 'best':
-        datascorefile = outprefix+'_'+os.path.splitext(seqfile)[0]+'_PWM-scores.txt'
+        datascorefile = outprefix+'_'+os.path.splitext(modelfile)[0]+'_PWM-scores.txt'
         print >>f_info, "Finding the best score of both the forward and reverse sequences"
     
     print >>f_info, 'Scores are being written to: ', datascorefile
@@ -901,6 +905,7 @@ if runtype == 'SVR':
         print "\nNormalizing the negative sequence file to the input sequence file..."
         negseqfilenorm = normalize_peak_lengths(seqfile,negseqfile)[0]
         print "\nRunning the model prediction on the negative sequence file..."
+        outprefix = outprefix + '_negseq'
         negscorefile = binding_prediction_chipall(modelfile,negseqfilenorm,genomefile)
         print "\nGetting the ROC curve"
         SVR_ROC(modelfile,seqscorefile,negscorefile)
@@ -911,6 +916,7 @@ if runtype == 'PWM':
         print "\nNormalizing the negative sequence file to the input sequence file..."
         negseqfilenorm = normalize_peak_lengths(seqfile,negseqfile)[0]
         print "\nRunning the model prediction on the negative sequence file..."
+        outprefix = outprefix + '_negseq'
         negscorefile = binding_prediction_PWM_chipall(modelfile,negseqfilenorm,genomefile)
         print "\nGetting the ROC curve"
         PWM_ROC(modelfile,seqscorefile,negscorefile)
