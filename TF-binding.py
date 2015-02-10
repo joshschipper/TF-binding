@@ -107,9 +107,10 @@ else: seqtype = 'best'
 def read_data(filename):
     ''' Creates an array for every cell in a tab separated text file'''
     data = []
-    if os.path.isfile(filename): f = open(filename, 'r') #opens the file as "f"
-    else:
-        sys.exit("The file", filename, "does not exist!")
+    try: f = open(filename, 'r') #opens the file as "f"
+    except IOError: 
+        print "Could not open the file:", filename
+        sys.exit()
     for line in f: #for each line in the file
         l = string.split(line.strip(), '\t') #removes any carriage returns, then splits the tab separated line into columns
         data.append(l) #Add each line to the array
